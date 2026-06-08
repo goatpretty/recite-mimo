@@ -542,7 +542,7 @@ export const synthesizeSpeech = async ({
     messages: [
       {
         role: 'user',
-        content: '请用清晰、平稳、适合背诵跟读的普通话朗读。语速中等，关键术语略作停顿。',
+        content: '请用清晰、平稳的普通话朗读。语速稍快，关键术语略作停顿。',
       },
       {
         role: 'assistant',
