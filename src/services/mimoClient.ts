@@ -4,6 +4,7 @@ import type {
   KeywordExtractionResult,
   TrainingTarget,
 } from '../types/learning'
+import { AiValidationError } from '../utils/aiValidators'
 import type { ApiSettings } from '../types/mimo'
 import type { ParsedReference, ReciteItem } from '../utils/referenceParser'
 import {
@@ -215,12 +216,60 @@ const parseAndValidate = <T>(
       throw new MimoApiError(`${error.message} 原始返回前 500 字：${error.preview}`, undefined, error.preview)
     }
 
+    if (error instanceof AiValidationError) {
+      throw new MimoApiError(error.message)
+    }
+
     if (error instanceof Error) {
       throw new MimoApiError(error.message)
     }
 
     throw new MimoApiError('AI 返回格式不符合预期，请重试。')
   }
+}
+
+const RETRY_SUFFIX =
+  '上一次返回不是有效 JSON。请严格只返回合法 JSON，不要 Markdown，不要代码块，不要解释文字。返回的第一个字符必须是 {，最后一个字符必须是 }。'
+
+const callJsonTaskWithRetry = async <T>({
+  settings,
+  buildMessages,
+  parseContent,
+}: {
+  settings: ApiSettings
+  buildMessages: () => ChatMessage[]
+  parseContent: (content: string) => T
+}): Promise<T> => {
+  const messages = buildMessages()
+
+  try {
+    const response = await chatCompletion(settings, {
+      modelName: settings.analysisModelId || 'mimo-v2.5',
+      messages,
+      maxCompletionTokens: 4096,
+      temperature: 0.2,
+      topP: 0.9,
+    })
+
+    return parseContent(readTextContent(response))
+  } catch {
+    // First attempt failed, retry with stricter prompt
+  }
+
+  const retryMessages: ChatMessage[] = [
+    ...messages,
+    { role: 'user' as const, content: RETRY_SUFFIX },
+  ]
+
+  const retryResponse = await chatCompletion(settings, {
+    modelName: settings.analysisModelId || 'mimo-v2.5',
+    messages: retryMessages,
+    maxCompletionTokens: 4096,
+    temperature: 0.1,
+    topP: 0.85,
+  })
+
+  return parseContent(readTextContent(retryResponse))
 }
 
 export const generateReferenceAnalysis = async ({
@@ -234,15 +283,20 @@ export const generateReferenceAnalysis = async ({
   selectedTarget: TrainingTarget
   selectedItems: ReciteItem[]
 }): Promise<AiReferenceAnalysis> => {
-  const response = await chatCompletion(settings, {
-    modelName: settings.analysisModelId || 'mimo-v2.5',
-    messages: buildReferenceAnalysisPrompt({ parsedReference, selectedTarget, selectedItems }),
-    maxCompletionTokens: 4096,
-    temperature: 0.2,
-    topP: 0.9,
-  })
+  try {
+    return await callJsonTaskWithRetry({
+      settings,
+      buildMessages: () =>
+        buildReferenceAnalysisPrompt({ parsedReference, selectedTarget, selectedItems }),
+      parseContent: (content) => parseAndValidate(content, validateReferenceAnalysis),
+    })
+  } catch (error) {
+    if (error instanceof MimoApiError) {
+      throw error
+    }
 
-  return parseAndValidate(readTextContent(response), validateReferenceAnalysis)
+    throw new MimoApiError('AI 返回格式仍不符合预期。请尝试修改原文格式，或缩短文本后重试。')
+  }
 }
 
 export const extractRecitationKeywords = async ({
@@ -256,15 +310,20 @@ export const extractRecitationKeywords = async ({
   selectedTarget: TrainingTarget
   selectedItems: ReciteItem[]
 }): Promise<KeywordExtractionResult> => {
-  const response = await chatCompletion(settings, {
-    modelName: settings.analysisModelId || 'mimo-v2.5',
-    messages: buildKeywordExtractionPrompt({ parsedReference, selectedTarget, selectedItems }),
-    maxCompletionTokens: 4096,
-    temperature: 0.1,
-    topP: 0.8,
-  })
+  try {
+    return await callJsonTaskWithRetry({
+      settings,
+      buildMessages: () =>
+        buildKeywordExtractionPrompt({ parsedReference, selectedTarget, selectedItems }),
+      parseContent: (content) => parseAndValidate(content, validateKeywordExtraction),
+    })
+  } catch (error) {
+    if (error instanceof MimoApiError) {
+      throw error
+    }
 
-  return parseAndValidate(readTextContent(response), validateKeywordExtraction)
+    throw new MimoApiError('AI 返回格式仍不符合预期。请尝试修改原文格式，或缩短文本后重试。')
+  }
 }
 
 export const reviewRecitation = async ({
@@ -284,24 +343,30 @@ export const reviewRecitation = async ({
   recognizedText: string
   originalText: string
 }): Promise<AiRecitationReview> => {
-  const response = await chatCompletion(settings, {
-    modelName: settings.analysisModelId || 'mimo-v2.5',
-    messages: buildRecitationReviewPrompt({
-      parsedReference,
-      selectedTarget,
-      selectedItems,
-      keywordExtraction,
-      recognizedText,
-      originalText,
-    }),
-    maxCompletionTokens: 4096,
-    temperature: 0.15,
-    topP: 0.85,
-  })
+  try {
+    return await callJsonTaskWithRetry({
+      settings,
+      buildMessages: () =>
+        buildRecitationReviewPrompt({
+          parsedReference,
+          selectedTarget,
+          selectedItems,
+          keywordExtraction,
+          recognizedText,
+          originalText,
+        }),
+      parseContent: (content) =>
+        filterAsrNotationOnlyReviewIssues(
+          parseAndValidate(content, validateRecitationReview),
+        ),
+    })
+  } catch (error) {
+    if (error instanceof MimoApiError) {
+      throw error
+    }
 
-  return filterAsrNotationOnlyReviewIssues(
-    parseAndValidate(readTextContent(response), validateRecitationReview),
-  )
+    throw new MimoApiError('AI 返回格式仍不符合预期。请尝试修改原文格式，或缩短文本后重试。')
+  }
 }
 
 const blobToDataUrl = (blob: Blob) =>

@@ -15,8 +15,10 @@ export interface ReciteItem {
   markerType: MarkerType
   rawText: string
   content: string
+  title?: string
   normalizedContent: string
   children?: ReciteItem[]
+  isGroup?: boolean
 }
 
 export interface ParsedReference {
@@ -35,6 +37,7 @@ interface MarkerMatch {
 }
 
 const circledNumbers = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳'
+const isCircledNumber = (char: string) => circledNumbers.includes(char)
 const chineseNumerals = '一二三四五六七八九十百千万两'
 const boundaryChars = new Set(['\n', '\r', '\t', ' ', '　', ';', '；', '。', '.', '!', '！', '?', '？', ','])
 
@@ -83,9 +86,15 @@ const isMarkerBoundary = (text: string, index: number) => {
     return true
   }
 
+  const immediatePrevious = text[index - 1]
+
+  if (immediatePrevious === '\n' || immediatePrevious === '\r') {
+    return true
+  }
+
   let previousIndex = index - 1
 
-  while (previousIndex >= 0 && /\s/.test(text[previousIndex])) {
+  while (previousIndex >= 0 && (text[previousIndex] === ' ' || text[previousIndex] === '　' || text[previousIndex] === '\t')) {
     previousIndex -= 1
   }
 
@@ -110,12 +119,13 @@ const findMarkers = (text: string): MarkerMatch[] => {
   let index = 0
 
   while (index < text.length) {
-    if (!isMarkerBoundary(text, index)) {
+    const rest = text.slice(index)
+
+    if (!isMarkerBoundary(text, index) && !isCircledNumber(rest[0])) {
       index += 1
       continue
     }
 
-    const rest = text.slice(index)
     const matchConfig = markerPatterns.find((config) => config.pattern.test(rest))
 
     if (!matchConfig) {
@@ -157,10 +167,92 @@ const normalizeItemContent = (content: string) =>
 const hasClearNumberedStructure = (markers: MarkerMatch[]) =>
   markers.length >= 2 || (markers.length === 1 && markers[0].start < 3)
 
+const buildNumberedItems = (rawText: string, markers: MarkerMatch[]) => {
+  const rootItems: ReciteItem[] = []
+  const processed = new Set<number>()
+  let itemIndex = 0
+
+  const makeItem = (marker: MarkerMatch, content: string): ReciteItem => {
+    itemIndex += 1
+
+    return {
+      id: `item-${itemIndex}`,
+      level: marker.level,
+      marker: marker.marker,
+      markerType: marker.markerType,
+      rawText: rawText.slice(marker.start, marker.end + content.length).trim(),
+      content,
+      normalizedContent: normalizeItemContent(content),
+    }
+  }
+
+  const level1Markers = markers.filter((m) => m.level === 1)
+  const level2Markers = markers.filter((m) => m.level === 2)
+
+  for (const l1 of level1Markers) {
+    const nextL1 = level1Markers[level1Markers.indexOf(l1) + 1]
+    const children = level2Markers.filter(
+      (m) => !processed.has(m.start) && m.start > l1.end && (!nextL1 || m.start < nextL1.start),
+    )
+
+    if (children.length > 0) {
+      const titleEnd = children[0].start
+      const title = stripOuterSeparators(rawText.slice(l1.end, titleEnd))
+
+      children.forEach((m) => processed.add(m.start))
+
+      const childItems = children.map((m) => {
+        const nextChild = children[children.indexOf(m) + 1]
+        const segEnd = nextChild?.start ?? (nextL1?.start ?? rawText.length)
+        const segContent = stripOuterSeparators(rawText.slice(m.end, segEnd))
+
+        return makeItem(m, segContent)
+      })
+
+      itemIndex += 1
+      rootItems.push({
+        id: `item-${itemIndex}`,
+        level: l1.level,
+        marker: l1.marker,
+        markerType: l1.markerType,
+        rawText: rawText.slice(l1.start, (nextL1?.start ?? rawText.length)).trim(),
+        content: title,
+        title,
+        normalizedContent: normalizeItemContent(title),
+        children: childItems,
+        isGroup: true,
+      })
+    } else {
+      const nextM = nextL1 ?? level2Markers.find((m) => m.start > l1.end)
+      const segEnd = nextM?.start ?? rawText.length
+      const segContent = stripOuterSeparators(rawText.slice(l1.end, segEnd))
+
+      rootItems.push(makeItem(l1, segContent))
+    }
+  }
+
+  for (const m of level2Markers) {
+    if (processed.has(m.start)) {
+      continue
+    }
+
+    const nextM = markers[markers.indexOf(m) + 1]
+    const segEnd = nextM?.start ?? rawText.length
+    const segContent = stripOuterSeparators(rawText.slice(m.end, segEnd))
+
+    rootItems.push(makeItem(m, segContent))
+  }
+
+  return rootItems
+}
+
 const flattenItems = (items: ReciteItem[]): ReciteItem[] =>
   items.flatMap((item) => {
-    const ownItem = item.content ? [item] : []
-    return [...ownItem, ...flattenItems(item.children ?? [])]
+    if (item.isGroup) {
+      return flattenItems(item.children ?? [])
+    }
+
+    return [item]
   })
 
 const fallbackParse = (rawText: string): ParsedReference => {
@@ -188,43 +280,6 @@ const fallbackParse = (rawText: string): ParsedReference => {
     flatItems: items,
     warnings: items.length === 0 ? ['没有解析到可训练文本。'] : ['未识别到明显编号结构，已按段落和标点切分。'],
   }
-}
-
-const buildNumberedItems = (rawText: string, markers: MarkerMatch[]) => {
-  const rootItems: ReciteItem[] = []
-  const stack: ReciteItem[] = []
-
-  markers.forEach((marker, index) => {
-    const nextMarker = markers[index + 1]
-    const segmentEnd = nextMarker?.start ?? rawText.length
-    const segmentText = rawText.slice(marker.end, segmentEnd)
-    const content = stripOuterSeparators(segmentText)
-    const item: ReciteItem = {
-      id: `item-${index + 1}`,
-      level: marker.level,
-      marker: marker.marker,
-      markerType: marker.markerType,
-      rawText: rawText.slice(marker.start, segmentEnd).trim(),
-      content,
-      normalizedContent: normalizeItemContent(content),
-    }
-
-    while (stack.length > 0 && stack[stack.length - 1].level >= item.level) {
-      stack.pop()
-    }
-
-    const parent = stack[stack.length - 1]
-
-    if (parent) {
-      parent.children = [...(parent.children ?? []), item]
-    } else {
-      rootItems.push(item)
-    }
-
-    stack.push(item)
-  })
-
-  return rootItems
 }
 
 export const parseReferenceText = (rawText: string): ParsedReference => {
@@ -273,7 +328,9 @@ export const findReciteItemById = (items: ReciteItem[], id: string): ReciteItem 
 }
 
 export const renderItemText = (item: ReciteItem): string => {
-  const ownLine = [item.marker, item.content].filter(Boolean).join(' ')
+  const ownLine = item.isGroup
+    ? [item.marker, item.title].filter(Boolean).join(' ')
+    : [item.marker, item.content].filter(Boolean).join(' ')
   const childLines = (item.children ?? []).map(renderItemText)
 
   return [ownLine, ...childLines].filter(Boolean).join('\n')
@@ -305,13 +362,11 @@ export const getReferenceSummary = (parsedReference: ParsedReference) => {
     return '未解析'
   }
 
-  const hasNumberedGroups = parsedReference.items.some((item) => item.children?.length)
+  const hasGroups = parsedReference.items.some((item) => item.isGroup)
 
-  if (!hasNumberedGroups) {
+  if (!hasGroups) {
     return `${parsedReference.flatItems.length} 个考点`
   }
 
-  return parsedReference.items
-    .map((item, index) => `第 ${index + 1} 组，${flattenItems(item.children ?? [item]).length} 个考点`)
-    .join('；')
+  return `共 ${parsedReference.items.length} 组，${parsedReference.flatItems.length} 个考点`
 }
