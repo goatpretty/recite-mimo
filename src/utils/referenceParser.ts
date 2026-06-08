@@ -111,7 +111,7 @@ const stripOuterSeparators = (value: string) =>
   value
     .trim()
     .replace(/^[、，,。．.;；:：\s]+/, '')
-    .replace(/[、，,。．.;；:：!?！？\s]+$/, '')
+    .replace(/(?:[、，,。．.;；:：!?！？\s]|\s*（[0-9一二三四五六七八九十百千万两]+）\s*)+$/, '')
     .trim()
 
 const findMarkers = (text: string): MarkerMatch[] => {
@@ -192,7 +192,7 @@ const buildNumberedItems = (rawText: string, markers: MarkerMatch[]) => {
   for (const l1 of level1Markers) {
     const nextL1 = level1Markers[level1Markers.indexOf(l1) + 1]
     const children = level2Markers.filter(
-      (m) => !processed.has(m.start) && m.start > l1.end && (!nextL1 || m.start < nextL1.start),
+      (m) => !processed.has(m.start) && m.start >= l1.end && (!nextL1 || m.start < nextL1.start),
     )
 
     if (children.length > 0) {
@@ -203,7 +203,8 @@ const buildNumberedItems = (rawText: string, markers: MarkerMatch[]) => {
 
       const childItems = children.map((m) => {
         const nextChild = children[children.indexOf(m) + 1]
-        const segEnd = nextChild?.start ?? (nextL1?.start ?? rawText.length)
+        const nextL2Global = level2Markers.find((lm) => lm.start > m.end && !children.some((c) => c.start === lm.start))
+        const segEnd = nextChild?.start ?? nextL2Global?.start ?? rawText.length
         const segContent = stripOuterSeparators(rawText.slice(m.end, segEnd))
 
         return makeItem(m, segContent)

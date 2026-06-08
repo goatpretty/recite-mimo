@@ -27,7 +27,7 @@ const renderItemTree = (
       onClick={() => onTargetSelect(item.id)}
     >
       {item.marker ? <span className="marker-pill">{item.marker}</span> : null}
-      <span>{item.content || `${countLeafItems(item)} 个子考点`}</span>
+      <span>{item.isGroup && !item.title ? '（本组考点）' : (item.title || item.content || `${countLeafItems(item)} 个子考点`)}</span>
       <small>{countLeafItems(item)} 个考点</small>
     </button>
 
