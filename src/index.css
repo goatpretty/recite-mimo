@@ -1,36 +1,37 @@
 :root {
-  --bg: #f6f7f9;
-  --surface: #ffffff;
-  --soft: #f1f5f4;
-  --input: #ffffff;
-  --text: #344054;
-  --text-strong: #121926;
-  --muted: #667085;
-  --border: #d9dee7;
-  --border-strong: #b9c2cf;
-  --accent: #246b61;
-  --focus: rgba(36, 107, 97, 0.28);
-  --button: #20303d;
-  --button-text: #ffffff;
-  --button-border: #20303d;
-  --disabled-bg: #eef1f4;
-  --disabled-border: #d6dce3;
-  --disabled-text: #98a2b3;
-  --danger: #b42318;
-  --success: #087443;
-  --warning-bg: #fff7e8;
-  --warning-border: #f4c56a;
-  --warning-text: #6f4e00;
-  --wrong-bg: #fee4e2;
-  --wrong-text: #912018;
-  --missing-bg: #fef0c7;
-  --missing-text: #93370d;
-  --extra-bg: #e0f2fe;
-  --extra-text: #075985;
-  font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-serif: "Source Han Serif SC", "Noto Serif CJK SC", "Noto Serif SC", "Songti SC", "SimSun", serif;
+  --bg: #f7f6f2;
+  --surface: #fffdf8;
+  --soft: #f0f3ef;
+  --input: #fffdf8;
+  --text: #344038;
+  --text-strong: #17201a;
+  --muted: #68756d;
+  --border: #d8ded8;
+  --border-strong: #c2cbc4;
+  --accent: #2f6f63;
+  --accent-strong: #24584f;
+  --focus: rgba(47, 111, 99, 0.24);
+  --button: #ffffff;
+  --button-text: var(--text-strong);
+  --button-border: var(--border-strong);
+  --disabled-bg: #edf1ee;
+  --disabled-border: #d7dfd8;
+  --disabled-text: #98a59c;
+  --danger: #a23a31;
+  --success: #2c7a5a;
+  --warning-bg: #fff7ea;
+  --warning-border: #e6c78a;
+  --warning-text: #7a5a14;
+  --wrong-bg: #fde9e7;
+  --wrong-text: #9f3a31;
+  --missing-bg: #f5ebcf;
+  --missing-text: #8b5e0f;
+  --extra-bg: #e5f0f2;
+  --extra-text: #335f69;
   color: var(--text);
   background: var(--bg);
+  font-family: var(--font-serif);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -43,6 +44,10 @@
 
 body {
   margin: 0;
+  font-family: var(--font-serif);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.8;
 }
 
 button,
@@ -50,6 +55,7 @@ input,
 select,
 textarea {
   font: inherit;
+  font-family: var(--font-serif);
 }
 
 h1,
@@ -57,18 +63,19 @@ h2,
 h3,
 p {
   overflow-wrap: anywhere;
+  letter-spacing: 0;
 }
 
 h1 {
   color: var(--text-strong);
-  font-size: clamp(34px, 5vw, 52px);
-  line-height: 1.05;
+  font-size: 28px;
+  line-height: 1.2;
   letter-spacing: 0;
 }
 
 h2 {
   color: var(--text-strong);
-  font-size: 20px;
-  line-height: 1.2;
+  font-size: 22px;
+  line-height: 1.25;
   letter-spacing: 0;
 }

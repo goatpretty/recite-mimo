@@ -6,9 +6,12 @@ interface ApiSettingsPanelProps {
   asrModels: ModelOption[]
   ttsModels: ModelOption[]
   analysisModels: ModelOption[]
+  ttsVoices: string[]
   onApiKeyChange: (value: string) => void
+  onApiBaseUrlChange: (value: string) => void
   onRememberChange: (value: boolean) => void
   onModelChange: (key: 'asrModelId' | 'ttsModelId' | 'analysisModelId', value: string) => void
+  onTtsVoiceChange: (value: string) => void
 }
 
 export const ApiSettingsPanel = ({
@@ -16,9 +19,12 @@ export const ApiSettingsPanel = ({
   asrModels,
   ttsModels,
   analysisModels,
+  ttsVoices,
   onApiKeyChange,
+  onApiBaseUrlChange,
   onRememberChange,
   onModelChange,
+  onTtsVoiceChange,
 }: ApiSettingsPanelProps) => {
   const hasApiKey = settings.apiKey.trim().length > 0
 
@@ -39,6 +45,20 @@ export const ApiSettingsPanel = ({
             autoComplete="off"
             onChange={(event) => onApiKeyChange(event.target.value)}
           />
+        </label>
+
+        <label className="field field--wide">
+          <span>API Base URL</span>
+          <input
+            type="url"
+            value={settings.apiBaseUrl}
+            placeholder="https://api.xiaomimimo.com/v1"
+            autoComplete="off"
+            onChange={(event) => onApiBaseUrlChange(event.target.value)}
+          />
+          <small>
+            `sk-` Key 默认使用 https://api.xiaomimimo.com/v1；`tp-` Key 请填 Token Plan 订阅页面提供的 Base URL。
+          </small>
         </label>
 
         <label className="check-field">
@@ -64,6 +84,17 @@ export const ApiSettingsPanel = ({
           onChange={(value) => onModelChange('ttsModelId', value)}
         />
 
+        <label className="field">
+          <span>TTS 音色</span>
+          <select value={settings.ttsVoice} onChange={(event) => onTtsVoiceChange(event.target.value)}>
+            {ttsVoices.map((voice) => (
+              <option key={voice} value={voice}>
+                {voice}
+              </option>
+            ))}
+          </select>
+        </label>
+
         <ModelSelect
           label="辅助分析模型"
           value={settings.analysisModelId}
@@ -85,8 +116,8 @@ export const ApiSettingsPanel = ({
 
       <p className={hasApiKey ? 'status status--ready' : 'status status--muted'}>
         {hasApiKey
-          ? '已输入 API Key，后续阶段可启用 ASR / TTS / AI 辅助分析。'
-          : '未输入 API Key，本地分段、录音、评分和记忆辅助仍可使用；ASR、TTS、AI 辅助分析按钮已禁用。'}
+          ? '已输入 API Key，可尝试调用 MiMo API；若浏览器跨域限制拦截，需要本地代理或服务端代理。'
+          : '未输入 API Key，本地结构解析和录音仍可使用；ASR、TTS、AI 辅助分析按钮已禁用。'}
       </p>
     </Panel>
   )

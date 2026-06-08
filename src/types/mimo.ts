@@ -10,9 +10,11 @@ export interface ModelOption {
 export interface ApiSettings {
   apiKey: string
   rememberApiKey: boolean
+  apiBaseUrl: string
   asrModelId: string
   ttsModelId: string
   analysisModelId: string
+  ttsVoice: string
 }
 
 export interface ComparisonStats {

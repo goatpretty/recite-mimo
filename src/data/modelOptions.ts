@@ -2,45 +2,45 @@ import type { ModelOption } from '../types/mimo'
 
 export const asrModelOptions: ModelOption[] = [
   {
-    id: 'mimo-asr-default',
-    name: 'ASR 模型占位',
+    id: 'mimo-v2.5-asr',
+    name: 'mimo-v2.5-asr',
     capability: 'asr',
-    description: '按 MiMo 文档补齐实际模型 ID',
-  },
-  {
-    id: 'mimo-asr-fast',
-    name: '快速识别占位',
-    capability: 'asr',
-    description: '适合短段落训练的占位选项',
+    description: 'MiMo ASR 识别模型',
   },
 ]
 
 export const ttsModelOptions: ModelOption[] = [
   {
-    id: 'mimo-tts-default',
-    name: 'TTS 模型占位',
+    id: 'mimo-v2.5-tts',
+    name: 'mimo-v2.5-tts',
     capability: 'tts',
-    description: '按 MiMo 文档补齐实际模型 ID',
-  },
-  {
-    id: 'mimo-tts-natural',
-    name: '自然朗读占位',
-    capability: 'tts',
-    description: '适合先听后背的占位选项',
+    description: 'MiMo TTS 朗读模型',
   },
 ]
 
 export const analysisModelOptions: ModelOption[] = [
   {
-    id: 'mimo-analysis-default',
-    name: '辅助分析模型占位',
+    id: 'mimo-v2.5',
+    name: 'mimo-v2.5',
     capability: 'analysis',
-    description: '只用于后续 AI 辅助分析，不影响本地对比',
+    description: '默认分析与 JSON 任务模型',
   },
   {
-    id: 'mimo-analysis-careful',
-    name: '细致纠错占位',
+    id: 'mimo-v2.5-pro',
+    name: 'mimo-v2.5-pro',
     capability: 'analysis',
-    description: '用于后续错因解释和复习建议',
+    description: '高质量分析与评分模型',
   },
+]
+
+export const ttsVoiceOptions = [
+  'mimo_default',
+  '冰糖',
+  '茉莉',
+  '苏打',
+  '白桦',
+  'Mia',
+  'Chloe',
+  'Milo',
+  'Dean',
 ]
